@@ -1,0 +1,34 @@
+name: Veille quotidienne des offres
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "10 6 * * *"
+permissions:
+  contents: write
+jobs:
+  rechercher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+      - name: Lancer la recherche
+        env:
+          FRANCE_TRAVAIL_CLIENT_ID: ${{ secrets.FRANCE_TRAVAIL_CLIENT_ID }}
+          FRANCE_TRAVAIL_CLIENT_SECRET: ${{ secrets.FRANCE_TRAVAIL_CLIENT_SECRET }}
+        run: python src/main.py
+      - name: Publier le résumé
+        run: cat data/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Enregistrer les résultats
+        run: |
+          git config user.name "jobveille-bot"
+          git config user.email "jobveille-bot@users.noreply.github.com"
+          git add data/known_offers.json data/latest_results.json data/summary.md
+          git diff --cached --quiet && exit 0
+          git commit -m "Mise à jour automatique des offres"
+          git push
